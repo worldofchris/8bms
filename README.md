@@ -1,4 +1,7 @@
 # 8bms
+
+![8bms](images/8bms.gif)
+
 Eight Bit Micro Services
 
 Tracking on [Trello](https://trello.com/b/z0ATvUdd/8bms).
