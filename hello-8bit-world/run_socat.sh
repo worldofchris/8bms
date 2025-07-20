@@ -2,48 +2,36 @@
 
 set -e
 
-echo "Starting socat to create virtual serial ports..."
+MODE=${1:-vice_receiver}  # Default to vice as receiver
+VICE_HOME=/Applications/vice-arm64-gtk3-3.9/bin
 
-SOCAT_LOG=$(mktemp)
-socat -d -d pty,raw,echo=0 pty,raw,echo=0 2> "$SOCAT_LOG" &
+echo "🔌 Creating virtual serial ports with socat..."
+
+PORT1=/tmp/ttyS0
+PORT2=/tmp/ttyS1
+SOCAT_LOG=./logs/socat.log
+
+socat -d -d -d -v pty,raw,echo=0,link=$PORT1 pty,raw,echo=0,link=$PORT2 2> "$SOCAT_LOG" &
+
 SOCAT_PID=$!
+C64_CODE=./rec_bas.d64
 
-# Wait for the ports to appear
-sleep 1
+sleep 1  # Wait for ports to settle
 
-# Extract the device names
-PORTS=($(grep -o '/dev/ttys[0-9]*' "$SOCAT_LOG"))
+VICE_PORT="$PORT1"
+HOST_PORT="$PORT2"
 
-if [ "${#PORTS[@]}" -ne 2 ]; then
-  echo "Error: Expected 2 serial ports, got ${#PORTS[@]}"
-  cat "$SOCAT_LOG"
-  kill $SOCAT_PID
-  exit 1
-fi
+echo "🧭 Mode: Python sender → VICE receiver"
+echo "📄 Writing .env for Python sender..."
+echo "HOST_PORT=$HOST_PORT" > .env
 
-SENDER_PORT="${PORTS[0]}"
-RECEIVER_PORT="${PORTS[1]}"
+echo "🚀 Launching VICE as receiver on ${VICE_PORT}..."
+$VICE_HOME/x64sc -userportdevice 2 -rsdev1 "$VICE_PORT" -rsdev1baud 1200 -rsuserbaud 1200 -autoload $C64_CODE &
 
-echo "SENDER_PORT=$SENDER_PORT"
-echo "RECEIVER_PORT=$RECEIVER_PORT"
+read -n 1 -s -r -p "Press any key once VICE is ready..."; echo
 
-# Write .env file
-cat <<EOF > .env
-SENDER_PORT=$SENDER_PORT
-RECEIVER_PORT=$RECEIVER_PORT
-EOF
+echo "🐍 Launching Python sender..."
+poetry run python hello_8bit_world/host.py
 
-BASE_DIR=hello_8bit_world
-
-# Start the receiver in a new terminal window
-osascript <<EOF
-tell application "Terminal"
-    do script "cd $(pwd); poetry run python ${BASE_DIR}/rec.py"
-end tell
-EOF
-
-# Run the sender in the current terminal
-poetry run python $BASE_DIR/send.py
-
-# Cleanup when done
+echo "🧹 Cleaning up socat..."
 kill $SOCAT_PID
