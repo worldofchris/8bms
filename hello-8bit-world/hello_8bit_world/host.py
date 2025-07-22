@@ -25,7 +25,9 @@ def main():
     if not port:
         raise EnvironmentError("HOST_PORT environment variable not set.")
     
-    baud = 1200
+    baud = os.environ.get('BAUD')
+    if not port:
+        raise EnvironmentError("BAUD environment variable not set.")
 
     with serial.Serial(port, baud, timeout=1) as ser:
 

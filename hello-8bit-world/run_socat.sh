@@ -2,6 +2,8 @@
 
 set -e
 
+BAUD=1200
+
 MODE=${1:-vice_receiver}  # Default to vice as receiver
 VICE_HOME=/Applications/vice-arm64-gtk3-3.9/bin
 
@@ -14,7 +16,7 @@ SOCAT_LOG=./logs/socat.log
 socat -d -d -d -v pty,raw,echo=0,link=$PORT1 pty,raw,echo=0,link=$PORT2 2> "$SOCAT_LOG" &
 
 SOCAT_PID=$!
-C64_CODE=./rec_bas.d64
+C64_CODE=./rec.d64
 
 sleep 1  # Wait for ports to settle
 
@@ -24,9 +26,10 @@ HOST_PORT="$PORT2"
 echo "🧭 Mode: Python sender → VICE receiver"
 echo "📄 Writing .env for Python sender..."
 echo "HOST_PORT=$HOST_PORT" > .env
+echo "BAUD=$BAUD" >> .env
 
 echo "🚀 Launching VICE as receiver on ${VICE_PORT}..."
-$VICE_HOME/x64sc -userportdevice 2 -rsdev1 "$VICE_PORT" -rsdev1baud 1200 -rsuserbaud 1200 -autoload $C64_CODE &
+$VICE_HOME/x64sc -userportdevice 2 -rsdev1 "$VICE_PORT" -rsdev1baud $BAUD -rsuserbaud $BAUD -autoload $C64_CODE &
 
 read -n 1 -s -r -p "Press any key once VICE is ready..."; echo
 
